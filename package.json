@@ -1,9 +1,9 @@
 {
-  "name": "screepsplus-agent",
+  "name": "screeps-bigquery-agent",
   "version": "1.6.2",
   "description": "",
   "main": "app.js",
-  "repository": "https://github.com/ScreepsPlus/node-agent",
+  "repository": "https://github.com/Fiskmans/screeps-bigquery-agent",
   "engines": {
     "node": ">=8.6.0"
   },
@@ -13,7 +13,7 @@
     "2npm": "publish"
   },
   "bin": {
-    "screepsplus-agent": "app.js"
+    "screeps-bigquery-agent": "app.js"
   },
   "author": "",
   "license": "ISC",
