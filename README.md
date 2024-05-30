@@ -1,30 +1,7 @@
-# ScreepsPlus node agent
-
-[![NPM info](https://nodei.co/npm/screepsplus-agent.png?downloads=true)](https://npmjs.org/package/screepsplus-agent)
-
-[![Circle CI](https://circleci.com/gh/ScreepsPlus/node-agent.svg?style=shield)](https://circleci.com/gh/ScreepsPlus/node-agent)
+# screeps bigquery agent
 
 ## Requirements
 Node.js 8+ 
-
-## Setup
-
-### Prerequisites
-
-1. Token from [ScreepsPl.us](https://screepspl.us/agent)
-2. Screeps Login info
-3. Node + NPM
-
-### Google Compute Engine
-
-Bonzaiferroni has written a nice guide for setting up on the Google Compute Engine free tier, check it out [here](https://github.com/bonzaiferroni/bonzAI/wiki/Screepspl.us-agent-with-Compute-Engine)
-
-### NPM
-
-```
-npm install -g screepsplus-agent
-screepsplus-agent
-```
 
 ### Manual
 
