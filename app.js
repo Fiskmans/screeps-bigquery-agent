@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 const fs = require('fs')
 const path = require('path')
-const updateNotifier = require('update-notifier')
 const { ScreepsAPI } = require('screeps-api')
 const request = require('request')
 const editor = require('editor')
 const args = require('commander')
 const pkg = require('./package.json')
-const { BigQuery } = require('@google-cloud/bigquery');
+const { BQInterface } = require('./bigQueryInterface.js');
 
 let api
+let bqInterface
 let setupRan = false
 
 args
@@ -57,17 +57,15 @@ if (args.sptoken) {
 if (args.verbose) {
   config.showRawStats = !!args.verbose
 }
-if (config) {
-  config.checkForUpdates = config.checkForUpdates && args.updatecheck
-}
-if (config) { start() } else { setup() }
+if (!config) throw new Error("missing config");
+
+start();
 
 async function start () {
   if (config.sampleConfig || !config.screeps) {
     console.log(file, 'does not have a valid config')
     return setup()
   }
-  if (config.checkForUpdates) { updateNotifier({pkg}).notify() }
   let ps = config.screeps.connect && config.screeps.connect.host
   api = new ScreepsAPI(config.screeps.connect)
   if (!ps && config.screeps.username) {
@@ -88,19 +86,13 @@ async function start () {
   } else {
     api.token = config.screeps.token
   }
-  // console.log('Authenticated')
-  console.log('Using stats method', config.screeps.method)
+	
+  bqInterface = new BQInterface(config.bigquery);
 
-  const shards = [].concat(config.screeps.shard)
-
-  if (config.screeps.method === 'console') {
-    beginConsoleStats()
-  } else {
-    shards.forEach((shard) => {
-      beginMemoryStats(shard, shards)
-    })
+  for(const shard of config.screeps.shard)
+  {
+	beginMemoryStats(shard)
   }
-  // })
 }
 
 function beginConsoleStats () {
@@ -120,72 +112,26 @@ function beginConsoleStats () {
 
 function formatStats (data) {
   if (data[0] === '{') data = JSON.parse(data)
-  if (typeof data === 'object') {
-    return {
-      type: 'application/json',
-      stats: data
-    }
+  if (typeof data !== 'object') throw new Error("stats misformed");
+
+  return {
+    type: 'application/json',
+    stats: data
   }
-  let [type, tick, time, ...stats] = data.split('\n')
-  if (type.startsWith('text')) {
-    stats = stats.map(s => `${s} ${time}`).join('\n') + '\n'
-  }
-  if (type === 'application/json') stats = JSON.parse(stats)
-  return Promise.resolve({ type, tick, time, stats })
 }
 
-function beginMemoryStats (shard, shards) {
+function beginMemoryStats (shard) {
   tick(shard)
   setInterval(() => { tick(shard) }, config.interval || 60000)
-}
-function addProfileData (stats) {
-  return api.raw.auth.me().then(res => {
-    let credits = res.money || 0
-    let power = res.power || 0
-    if (stats.type == 'application/json') {
-      stats.stats.credits = credits
-      stats.stats.power = power
-    }
-    if (stats.type == 'text/grafana') {
-      stats.stats += `credits ${credits} ${Date.now()}\n`
-      stats.stats += `power ${power} ${Date.now()}\n`
-    }
-    if (stats.type == 'text/influxdb') { stats.stats += `profile,user=${res.username} credits=${credits},power=${power} ${Date.now()}\n` }
-    return stats
-  })
-}
-function addLeaderboardData (me, stats) {
-  return api.leaderboard.find(me.username, 'world').then(res => {
-    let { rank, score } = res.list.slice(-1)[0]
-    if (stats.type == 'application/json') {
-      stats.stats.leaderboard = { rank, score }
-    }
-    if (stats.type == 'text/grafana') {
-      stats.stats += `leaderboard.rank ${rank} ${Date.now()}\n`
-      stats.stats += `leaderboard.score ${score} ${Date.now()}\n`
-    }
-    if (stats.type == 'text/influxdb') { stats.stats += `leaderboard,user=${me.username} rank=${rank},score=${score} ${Date.now()}\n` }
-    return stats
-  })
 }
 
 function tick (shard) {
   Promise.resolve()
     .then(() => console.log('Fetching Stats (' + shard + ')'))
     .then(() => { return getStats(shard) })
-    .then(processStats)
+    .then(formatStats)
+	.then(pushStats)
     .catch(err => console.error(err))
-}
-
-async function processStats (data) {
-  data = await formatStats(data)
-  if (config.includeProfileData) {
-    data = await addProfileData(data)
-  }
-  if (config.includeLeaderboard) {
-    data = await api.me().then(me => addLeaderboardData(me, data))
-  }
-  pushStats(data)
 }
 
 function getStats (shard) {
@@ -196,31 +142,10 @@ function getStats (shard) {
   }
 }
 
-function pushStats (data) {
+async function pushStats (data) {
   let {type, stats} = data
   if (!stats) return console.log('No stats found, is Memory.stats defined?')
-  if (config.showRawStats) console.log(JSON.stringify(stats, null, 2))
-}
-
-function setup () {
-  if (setupRan) {
-    console.log('Agent not configured. Did you forget to edit the config?')
-    process.exit()
-  }
-  setupRan = true
-  let path = getConfigPaths().create
-  if (path) {
-    fs.writeFileSync(path, fs.readFileSync(__dirname + '/config.js.sample'))
-    editor(path, (code) => {
-      if (!code) start()
-    })
-  } else {
-    console.log('Please setup config.js before running.')
-    console.log(`Valid paths for your platform (${process.platform}):`)
-    getConfigPaths().paths.forEach(path => console.log(`- ${path}`))
-    console.log()
-    console.log('Or set the AGENT_CONFIG_PATH environment variable to point to a valid config file.')
-  }
+  await bqInterface.WriteToDatabase(config.bigquery, stats);
 }
 
 function getConfigPaths () {
