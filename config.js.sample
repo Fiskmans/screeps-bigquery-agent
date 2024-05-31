@@ -1,8 +1,7 @@
 // Please set the configuration below
 module.exports = {
 	screeps: {
-		token: 'Your Screeps Auth token. Goto your screeps account > Auth Token to get one.',
-		method: 'memory.stats', // Valid Options: 'console' 'memory.stats'
+		token: '',
 //		segment: 99, // Uncomment this line and specify segment id if you're placing stats into segment
 		shard: ['shard0'], // An array of shards to pull data from.
 		// username: 'username', // uncomment these for Private Servers
@@ -13,14 +12,16 @@ module.exports = {
 			// protocol: 'https'
 		}
 	},
-	// prefix: 'mmo', // uncomment this to prefix your data
-	service: {
-		url: 'https://screepspl.us',
-		token: 'apitoken'	// Token supplied upon account creation
+	bigquery:
+	{
+		dataset: "",
+		printToConsole: true,
+		createMissingTables: true,
+		partionExpiryDays: 60, // 0 to disable 
+		createMissingColumns: true,
+		clusterOnUnderscore: true, // cluster created tables on columns beginning with an underscore
 	},
-	includeLeaderboard: true,
-	includeProfileData: true, // This pulls credits and power, note this also requires a full access token
-	checkForUpdates: true,
-	showRawStats: false, // This dumps stats to console on every push if enabled
-	sampleConfig: true // REMOVE THIS LINE BEFORE RUNNING
+	interval: 30000,
+	checkForUpdates: false,
+	sampleConfig: false
 }
