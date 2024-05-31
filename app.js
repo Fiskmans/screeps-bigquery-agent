@@ -7,6 +7,8 @@ const request = require('request')
 const editor = require('editor')
 const args = require('commander')
 const pkg = require('./package.json')
+const { BigQuery } = require('@google-cloud/bigquery');
+
 let api
 let setupRan = false
 
@@ -25,8 +27,6 @@ args
   .option('--no-updatecheck', 'Skip check for updates')
   .option('-v, --verbose', 'Verbose')
   .parse(process.argv)
-
-if (process.argv[2] == 'test') process.exit(0) // Placeholder ;)
 
 let {file, config} = loadConfig()
 if (args.username || args.password || args.token || args.segment || args.memory || args.console || args.host || args.https) {
@@ -63,7 +63,7 @@ if (config) {
 if (config) { start() } else { setup() }
 
 async function start () {
-  if (config.sampleConfig || !config.screeps || !config.service) {
+  if (config.sampleConfig || !config.screeps) {
     console.log(file, 'does not have a valid config')
     return setup()
   }
@@ -136,7 +136,7 @@ function formatStats (data) {
 
 function beginMemoryStats (shard, shards) {
   tick(shard)
-  setInterval(() => { tick(shard) }, config.screeps.segment !== undefined ? (15000 * shards.length) : 60000)
+  setInterval(() => { tick(shard) }, config.interval || 60000)
 }
 function addProfileData (stats) {
   return api.raw.auth.me().then(res => {
@@ -199,32 +199,7 @@ function getStats (shard) {
 function pushStats (data) {
   let {type, stats} = data
   if (!stats) return console.log('No stats found, is Memory.stats defined?')
-  if (config.prefix) stats = {[config.prefix]: stats};
-  if (config.showRawStats) console.log('Stats:', JSON.stringify(stats, null, 3))
-  console.log('Pushing stats')
-  let sconfig = config.service
-  if (type == 'application/json') stats = JSON.stringify(stats)
-  request({
-    method: 'POST',
-    url: sconfig.url + '/api/stats/submit',
-    auth: {
-      user: 'token',
-      pass: sconfig.token
-    },
-    headers: {
-      'content-type': type
-    },
-    body: stats
-  }, (err, res, data) => {
-    if (res && res.statusCode == 413) {
-      let len = Math.round(JSON.stringify(stats).length / 1024)
-      console.log(`stats size: ${len}kb`)
-      console.log(`stats limit: 10mb (As of Mar 28, 2017) (If you hit this limit, you are probably doing something wrong)`)
-      console.error(`It appears your stats data is too large, please check to make sure you are not submitting unneeded stats, such as old rooms. \n If you legitimately need to submit stats this large, contact ags131 on slack for a limit bump`)
-    }
-    console.log('Result:', data)
-    if (err) console.error(err)
-  })
+  if (config.showRawStats) console.log(JSON.stringify(stats, null, 2))
 }
 
 function setup () {

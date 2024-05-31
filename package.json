@@ -22,7 +22,8 @@
     "editor": "^1.0.0",
     "request": "^2.75.0",
     "screeps-api": "^1.4.0",
-    "update-notifier": "^1.0.2"
+    "update-notifier": "^1.0.2",
+	"@google-cloud/bigquery": "^7.7.0"
   },
   "devDependencies": {
     "publish": "^0.6.0"
