@@ -135,11 +135,14 @@ async function WriteToTable(options, dataset, tableId, rows)
 	{
 		console.log("table [" + tableId + "] does not exists: " + e.message);
 		
-		if (!e.message.startsWith("Not Found"))
+		if (!e.message.startsWith("Not found"))
 			throw new Error("Unkown error db: " + e.message);
 		
 		if (options.createMissingTables) 
-			table = await CreateTable(options, dataset, tableId, rows);
+		{
+			console.log("Creating table: " + tableId);
+			[ table ] = await CreateTable(options, dataset, tableId, rows);
+		}
 		else
 			throw new Error("Missing table: " + tableId);
 	}
@@ -153,13 +156,15 @@ async function WriteToTable(options, dataset, tableId, rows)
 	}
 	catch(e)
 	{
+		console.log("Failed to insert rows");
+		
 		if (!options.createMissingColumns)
 			throw e;
 		
-		if (!e.response)												throw new Error("unkown error");
-		if (!e.response.kind)											throw new Error("unkown error");
-		if (e.response.kind !== "bigquery#tableDataInsertAllResponse") 	throw new Error("unkown error");
-		if (!e.response.insertErrors) 									throw new Error("unkown error");
+		if (!e.response)												throw e;
+		if (!e.response.kind)											throw e;
+		if (e.response.kind !== "bigquery#tableDataInsertAllResponse") 	throw e;
+		if (!e.response.insertErrors) 									throw e;
 		
 		let rowsToReinsert = [];
 		let [ metadata ] = await table.getMetadata();
