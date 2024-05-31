@@ -104,6 +104,7 @@ async function CreateTable(options, dataset, tableId, rows)
 		timePartitioning: 	
 		{ 
 			type: "DAY", 
+			field: "time",
 			expirationMs: 	options.partionExpiryDays != 0
 								? options.partionExpiryDays * 1000 * 60 * 60 * 24
 								: null
