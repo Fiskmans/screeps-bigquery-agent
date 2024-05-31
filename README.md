@@ -1,4 +1,4 @@
-# screeps bigquery agent
+# screeps bigquery agent (Modified version of 'node agent' by screepsplus)
 
 ## Requirements
 Node.js 8+ 
