@@ -64,7 +64,7 @@ start();
 async function start () {
   if (config.sampleConfig || !config.screeps) {
     console.log(file, 'does not have a valid config')
-    return setup()
+    return;
   }
   let ps = config.screeps.connect && config.screeps.connect.host
   api = new ScreepsAPI(config.screeps.connect)

@@ -9,15 +9,17 @@ function DeduceColumns(rows)
 }
 
 function PrintData(options, tableId, rows)
-{
+{	
 	let columns = DeduceColumns(rows);
 	
 	console.log("[" + tableId + "]");
 	let columnWidths = [];
+
+	let truncatedRows = rows.slice(1, 12);
 	
 	for(let column of columns)
 	{		
-		columnWidths.push(Math.max(column.length, ...rows.map(row => (row[column] || "").toString().length)));
+		columnWidths.push(Math.max(column.length, ...truncatedRows.map(row => (row[column] || "null").toString().length)));
 	}
 	
 	let headers = "| ";
@@ -30,15 +32,19 @@ function PrintData(options, tableId, rows)
 	console.log(headers);
 	console.log(seperator);
 	
-	for(let row of rows)
+	for(let row of truncatedRows)
 	{
 		let rowText = "| ";
 		for(let i in columns)
 		{
-			rowText += " " + row[columns[i]].toString().padEnd(columnWidths[i] + 1) + "|";
+			rowText += " " + (row[columns[i]] || "null").toString().padEnd(columnWidths[i] + 1) + "|";
 		}
 		console.log(rowText);
 	}
+	
+	if (truncatedRows.length < rows.length)
+		console.log(`... ${rows.length - truncatedRows.length} more rows ...`);
+	
 	console.log("");
 }
 
@@ -205,15 +211,10 @@ async function WriteToTable(options, dataset, tableId, rows)
 		
 		const [ result ] = await table.setMetadata(metadata);
 		
-		try
-		{
-			await table.insert(rowsToReinsert);
-		}
-		catch
-		{
-			console.log("Double insert failure", e.message)
-		}
+		return rowsToReinsert
 	}
+	
+	return [];
 }
 
 exports.BQInterface = class 
@@ -223,13 +224,57 @@ exports.BQInterface = class
 		if(options.printToConsole) console.log("Writing into [" + options.dataset + "]");
 		
 		this.Dataset = new BigQuery().dataset(options.dataset);
+		
+		this.Buffer = {};
 	}
 	
 	async WriteToDatabase (options, stats)
 	{
-		for(let table of Object.keys(stats))
+		let time = stats.time;
+		
+		for(let table of Object.keys(stats.tables))
 		{
-			await WriteToTable(options, this.Dataset, table, stats[table]);
+			if (!this.Buffer[table])
+			{
+				this.Buffer[table] = 
+				{
+					last_sent: Date.now(),
+					queue: []
+				}
+			}
+			
+			stats.tables[table].forEach(r => r.time = time);
+			
+			this.Buffer[table].queue = this.Buffer[table].queue.concat(stats.tables[table]);
 		}
+		
+		let now = Date.now();
+		
+		for(let table of Object.keys(this.Buffer))
+		{
+			let shouldFlush = false;
+			let buffer = this.Buffer[table];
+			
+			if (buffer.queue.length > options.rowsToBuffer)
+			{
+				console.log(`${table} has ${buffer.queue.length} rows queued, flushing`);
+				shouldFlush = true;
+			}
+			
+			if (buffer.last_sent + options.maxBufferTime * 1000 * 60 < now)
+			{
+				console.log(`Flushing ${table} due to time`);
+				shouldFlush = true;
+			}
+		
+			if (!shouldFlush)
+				continue;
+			
+			buffer.last_sent = now;
+			buffer.queue = await WriteToTable(options, this.Dataset, table, buffer.queue);
+		}
+		
+		if (options.printToConsole)
+			console.log(`${_.sumBy(Object.values(this.Buffer), (b) => b.queue.length)} rows buffered in ${Object.keys(this.Buffer).length} tables`);
 	}
 }

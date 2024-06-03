@@ -15,6 +15,8 @@ module.exports = {
 	bigquery:
 	{
 		dataset: "",
+		rowsToBuffer: 1000, // how many rows to buffer before inserting into tables
+		maxBufferTime: 10, // the maximun amount of time to buffer rows before flushing (minutes)
 		printToConsole: true,
 		createMissingTables: true,
 		partionExpiryDays: 60, // 0 to disable 
